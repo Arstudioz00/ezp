@@ -1,0 +1,106 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id         Int        @id @default(autoincrement())
+  username   String     @unique
+  password   String
+  email      String?
+  createdAt  DateTime   @default(now()) @map("created_at")
+  customers  Customer[]
+  projects   Project[]
+  invoices   Invoice[]
+  settings   Setting[]
+
+  @@map("users")
+}
+
+model Customer {
+  id         Int        @id @default(autoincrement())
+  userId     Int        @map("user_id")
+  title      String?    @db.VarChar(10) // New field for Title
+  name       String
+  email      String?
+  phone      String?
+  address    String?    @db.Text
+  currency   String?    @db.VarChar(10) // New field for Preferred Currency
+  website    String?    @db.VarChar(255) // New field for Website
+  tags       String?    @db.Text        // New field for Tags
+  createdAt  DateTime   @default(now()) @map("created_at")
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  projects   Project[]
+  invoices   Invoice[]
+
+  @@map("customers")
+}
+
+model Project {
+  id           Int        @id @default(autoincrement())
+  userId       Int        @map("user_id")
+  customerId   Int        @map("customer_id")
+  projectName  String     @map("project_name")
+  projectCode  String     @unique @map("project_code")
+  description  String?    @db.Text
+  startDate    DateTime?  @map("start_date")
+  endDate      DateTime?  @map("end_date")
+  createdAt    DateTime   @default(now()) @map("created_at")
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  customer     Customer   @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  invoices     Invoice[]
+
+  @@map("projects")
+}
+
+model Invoice {
+  id             Int           @id @default(autoincrement())
+  userId         Int           @map("user_id")
+  customerId     Int           @map("customer_id")
+  projectId      Int           @map("project_id")
+  invoiceNumber  String        @unique @map("invoice_number")
+  invoiceDate    DateTime      @map("invoice_date")
+  dueDate        DateTime?     @map("due_date")
+  status         InvoiceStatus @default(UNPAID)
+  totalAmount    Decimal       @map("total_amount") @db.Decimal(10, 2)
+  createdAt      DateTime      @default(now()) @map("created_at")
+  user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  customer       Customer      @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  project        Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  items          InvoiceItem[]
+
+  @@map("invoices")
+}
+
+model InvoiceItem {
+  id          Int      @id @default(autoincrement())
+  invoiceId   Int      @map("invoice_id")
+  description String   @db.Text
+  quantity    Int
+  unitPrice   Decimal  @map("unit_price") @db.Decimal(10, 2)
+  total       Decimal  @db.Decimal(10, 2)
+  invoice     Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@map("invoice_items")
+}
+
+model Setting {
+  id           Int      @id @default(autoincrement())
+  userId       Int      @map("user_id")
+  paymentTerms String?  @map("payment_terms") @db.Text
+  currency     String   @default("USD")
+  createdAt    DateTime @default(now()) @map("created_at")
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("settings")
+}
+
+enum InvoiceStatus {
+  UNPAID
+  PAID
+  OVERDUE
+}
